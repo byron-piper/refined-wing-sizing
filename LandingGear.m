@@ -36,14 +36,17 @@ classdef LandingGear
               0.3+0.15*sqrt(2) -0.1 -1 2;
               0.3 -0.1 -1+0.15*sqrt(2) 2],
         };
+        mass
     end
     methods
-        function obj = LandingGear(lg_height)
+        function obj = LandingGear(lg_height, mass)
             for i=1:length(obj.panels)
                 obj.panels{i}(:, 1) = obj.panels{i}(:, 1) * lg_height;
                 obj.panels{i}(:, 2) = obj.panels{i}(:, 2) * lg_height;
                 obj.panels{i}(:, 3) = obj.panels{i}(:, 3) * lg_height;
             end
+
+            obj.mass = mass;
         end
     end
 end

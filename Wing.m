@@ -11,6 +11,8 @@ classdef Wing < handle
         wing % Collection of wing panels and extrusions
         panel_thicknesses
         panel_angles
+        panel_volumes
+        volume
 
         % Engine
         engine_panels
@@ -18,6 +20,7 @@ classdef Wing < handle
 
         % Landing gear
         lg_panels
+        lg_data
 
         % Structural metrics
         unit_loading
@@ -120,7 +123,6 @@ classdef Wing < handle
             for i=1:length(obj.panels)
                 % Get the middle span of the panel
                 y_mid = (obj.panels{i}(2, 2) + obj.panels{i}(1, 2)) / 2;
-
 
                 % Get the x-position at both the leading and trailing edge
                 % at the panel's mid span
@@ -233,38 +235,61 @@ classdef Wing < handle
             % Calculates the semi span of the wing
             semi_span = obj.wing{1}{end}(2, 2);
         end
-    
-        function volume = volume(obj)
+
+        function obj = calc_panel_volumes(obj)
+            obj.volume = 0;
+            obj.panel_volumes = zeros(1, length(obj.panels)-1);
             % Calculates and returns the volume of the wing
-            volume = 0;
             for i=2:length(obj.panels)
                 root_thickness = obj.panel_thicknesses(i-1);
                 tip_thickness = obj.panel_thicknesses(i);
                 panel_span = obj.panels{i}(2, 2) - obj.panels{i}(1, 2);
                 panel_root_chord = obj.panels{i}(4, 1) - obj.panels{i}(1, 1);
-                volume = volume + 0.5*(root_thickness + tip_thickness) * panel_span* panel_root_chord;
+                obj.panel_volumes(i-1) = 0.5*(root_thickness + tip_thickness) * panel_span * panel_root_chord;
+                obj.volume = obj.volume + obj.panel_volumes(i-1);
             end
         end
 
-        function [unit_loading, shear, moment, deflection_angle, deflection] = calc_structural_metrics(obj, W, E)
+        function [unit_loading, unit_weight, shear, moment, deflection_angle, deflection] = calc_structural_metrics(obj, W, E)
             y1 = cellfun(@(x) x(1, 2), obj.panels);
             y2 = cellfun(@(x) x(2, 2), obj.panels);
             
             q1 = ((4 * W) / (pi * obj.wingspan)) * sqrt(1 - ((2 * y1) / obj.wingspan).^2);
             q2 = ((4 * W) / (pi * obj.wingspan)) * sqrt(1 - ((2 * y1) / obj.wingspan).^2);
 
+            fuel_density = 804; % kg/m3
+            fuel_ratio = 1; % Percentage of the wing that is fuel
+
+            N = 1; % Load factor
+
             unit_loading = (q2 + q1) / 2;
+            unit_weight = zeros(1, length(obj.panels)-1);
             shear = zeros(1, length(obj.panels));
             moment = zeros(1, length(obj.panels));
             deflection_angle = zeros(1, length(obj.panels));
             deflection = zeros(1, length(obj.panels));
 
+            if isempty(obj.panel_thicknesses)
+                obj.calc_panel_thicknesses();
+            end
+
+            if isempty(obj.panel_volumes)
+                obj.calc_panel_volumes();
+            end
+
             for i=length(shear)-1:-1:1
-                engine_load = 0;
+                implement_load = 0;
                 if ~isempty(obj.engine_data) & i == obj.engine_data(1)
-                    engine_load = obj.engine_data(end);
+                    implement_load = implement_load + obj.engine_data(end);
                 end
-                shear(i) = -engine_load + shear(i + 1) - unit_loading(i)*(y2(i) - y1(i));
+                if ~isempty(obj.lg_data) & i == obj.lg_data(1)
+                    implement_load = implement_load + obj.lg_data(end);
+                end
+                if i <= length(shear)-2
+                    unit_weight(i) = obj.panel_volumes(i) * 1e-9 * fuel_density * fuel_ratio * 9.80665 * N;
+                end
+
+                shear(i) = -implement_load + shear(i + 1) - unit_loading(i)*(y2(i) - y1(i));
             end
 
             for i=length(moment)-1:-1:1
@@ -324,8 +349,22 @@ classdef Wing < handle
             obj.engine_data = [panel_idx, delta_x, delta_y, delta_z, engine.mass*9.80665];
         end
     
-        function obj = add_landing_gear(obj, lg)
+        function obj = add_landing_gear(obj, lg, x_lg, y_lg)
+            for i = 1:length(lg.panels)
+                lg.panels{i}(:, 1) = lg.panels{i}(:, 1) + x_lg;
+                lg.panels{i}(:, 2) = lg.panels{i}(:, 2) + y_lg;
+            end
+
             obj.lg_panels = lg.panels;
+
+            y_inboard = cellfun(@(x) x(1, 2), obj.panels);
+            y_outboard = cellfun(@(x) x(2, 2), obj.panels);
+
+            panel_idx = find(y_inboard <= y_lg & y_outboard >= y_lg);
+
+            panel_idx = panel_idx(1);
+
+            obj.lg_data = [panel_idx, lg.mass*9.80665];
         end
     end
     methods (Access = private)
