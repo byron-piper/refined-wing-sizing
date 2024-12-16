@@ -33,8 +33,8 @@ for a=1:numel(wing)
             tri_ik = delaunay(i, k);
             tri_uw = delaunay(u, w);
 
-            trisurf(tri_ik, i, j, k, 'FaceColor', '#AAAAAA', 'EdgeColor', '#888888');
-            trisurf(tri_uw, u, v, w, 'FaceColor', '#AAAAAA', 'EdgeColor', '#888888');
+            %trisurf(tri_ik, i, j, k, 'FaceColor', '#AAAAAA', 'EdgeColor', '#888888');
+            %trisurf(tri_uw, u, v, w, 'FaceColor', '#AAAAAA', 'EdgeColor', '#888888');
         end
     end
 end

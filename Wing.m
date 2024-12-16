@@ -29,6 +29,10 @@ classdef Wing < handle
         deflection_angle
         deflection
 
+        % Fuel
+        fuel_density = 804 % kg/m3
+        fuel_ratio = 1 % Percentage of the wing that is fuel
+
         % Sizing
         taper_ratio = 1
         planform_area = 0
@@ -250,17 +254,18 @@ classdef Wing < handle
             end
         end
 
-        function [unit_loading, unit_weight, shear, moment, deflection_angle, deflection] = calc_structural_metrics(obj, W, E)
+        function obj = set_fuel_properties(obj, fuel_density, fuel_ratio)
+            
+        end
+
+        function [unit_loading, unit_weight, shear, moment, deflection_angle, deflection] = calc_structural_metrics(obj, W, E, N)
             y1 = cellfun(@(x) x(1, 2), obj.panels);
             y2 = cellfun(@(x) x(2, 2), obj.panels);
             
+            W = W * N;
+
             q1 = ((4 * W) / (pi * obj.wingspan)) * sqrt(1 - ((2 * y1) / obj.wingspan).^2);
             q2 = ((4 * W) / (pi * obj.wingspan)) * sqrt(1 - ((2 * y1) / obj.wingspan).^2);
-
-            fuel_density = 804; % kg/m3
-            fuel_ratio = 1; % Percentage of the wing that is fuel
-
-            N = 1; % Load factor
 
             unit_loading = (q2 + q1) / 2;
             unit_weight = zeros(1, length(obj.panels)-1);
@@ -286,7 +291,7 @@ classdef Wing < handle
                     implement_load = implement_load + obj.lg_data(end);
                 end
                 if i <= length(shear)-2
-                    unit_weight(i) = obj.panel_volumes(i) * 1e-9 * fuel_density * fuel_ratio * 9.80665 * N;
+                    unit_weight(i) = obj.panel_volumes(i) * 1e-9 * obj.fuel_density * obj.fuel_ratio * 9.80665 * N;
                 end
 
                 shear(i) = -implement_load + shear(i + 1) - unit_loading(i)*(y2(i) - y1(i));
